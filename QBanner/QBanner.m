@@ -14,6 +14,9 @@
 @property(nonatomic, assign) NSInteger sections;
 @property(nonatomic, assign) CGFloat currentPage;
 @property(nonatomic, assign) NSInteger itemCount;
+
+@property(nonatomic, assign) CGFloat needUpdateMinX;
+@property(nonatomic, assign) CGFloat needUpdateMaxX;
 @end
 @implementation QBanner
 
@@ -23,13 +26,13 @@
     if (self) {
         [self doAddSubview];
         [self doInitVar];
-        
     }
     return self;
 }
 - (void)layoutSubviews{
     self.collectionView.frame = self.bounds;
     self.pageControl.frame = CGRectMake(0, CGRectGetHeight(self.bounds)-20, CGRectGetWidth(self.bounds), 20);
+    [self updateMinMaxX];
 }
 - (void)doInitVar{
     self.autoScrolling = YES;
@@ -48,12 +51,12 @@
     [self pageControl];
 }
 - (void)reload{
+    if(self.images)
+        self.itemCount = self.images.count;
     if(self.numberOfItem)
         self.itemCount = self.numberOfItem(self);
     
-    if(self.images)
-        self.itemCount = self.images.count;
-    
+    NSLog(@">>>>>>>>>>>>>%ld",(long)self.itemCount);
     [self.collectionView reloadData];
     [self doUpdateCell];
 }
@@ -86,7 +89,6 @@
     self.autoScrolling = self.itemCount > 1;
     [self doUpdateCell];
 }
-
 - (void)setDuration:(NSTimeInterval)duration{
     _duration = duration;
     
@@ -94,7 +96,9 @@
     
     self.timer = [QBannerHelper scheduledTimerWithTimeInterval:duration target:self selector:@selector(toNext) userInfo:nil];
     if(!self.autoScrolling)
-       [self pauseTimer];
+        [self pauseTimer];
+    else
+        [self startTimer];
 }
 
 - (void)setAutoScrolling:(BOOL)autoScrolling{
@@ -105,6 +109,11 @@
     }
     _autoScrolling = autoScrolling;
     
+}
+
+- (void)updateMinMaxX{
+    self.needUpdateMinX = -CGRectGetWidth(self.collectionView.bounds);
+    self.needUpdateMaxX = CGRectGetWidth(self.collectionView.bounds)*2;
 }
 - (void)toNext{
     if(self.itemCount <= 1){
@@ -212,8 +221,13 @@ static NSString *QBannerCellID = @"QBannerCell";
     }
     
     if(self.customerCellForItem)self.customerCellForItem(cell, indexPath.item);
-    cell.customSetRatio = self.customSetRatio;\
+    if(self.customSetRatio)cell.customSetRatio = self.customSetRatio;
+    [self updateCell:cell];
     return cell;
+}
+
+- (void)collectionView:(UICollectionView *)collectionView willDisplayCell:(UICollectionViewCell *)cell forItemAtIndexPath:(NSIndexPath *)indexPath{
+    [self updateCell:(QBannerCell *)cell];
 }
 - (void)scrollViewDidScroll:(UIScrollView *)scrollView{
     if(self.itemCount > 1){
@@ -227,38 +241,46 @@ static NSString *QBannerCellID = @"QBannerCell";
     [self doUpdateCell];
     [self calCurrentPage];
 }
+
+- (void)updateCell:(QBannerCell *)cell{
+    cell.animationStyle = self.animationStyle;
+    if(self.animationStyle == QBannerAnimateStyleNone){
+        cell.ratio = 1;
+        return;
+    }
+    
+    //需要更新的最小X
+    CGFloat minX = -CGRectGetWidth(self.collectionView.bounds);
+    //需要更新的最大X
+    CGFloat maxX = CGRectGetWidth(self.collectionView.bounds)*2;
+    //cell当前X
+    CGFloat midX  = CGRectGetMidX([self.collectionView convertRect:cell.frame toView:self]);
+    
+    //当前x在 最小X和最大X中的比例
+    //x=0-1
+    CGFloat ratio = [QBannerHelper getRatioWithMax:maxX min:minX mid:midX];
+    //转化为cell需要的比例
+    CGFloat finalRatio = ratio;
+    if(self.animationStyle == QBannerAnimateStyleScaleL){
+        //1.5-1-0.5
+        finalRatio = 2 - ratio - 0.5;
+    }else if(self.animationStyle == QBannerAnimateStyleScaleM){
+        //0.5-1-0.5
+        finalRatio = sin(M_PI * ratio) / 2 + 0.5;
+    }else if(self.animationStyle == QBannerAnimateStyleScaleR){
+        //0.5-1-1.5
+        finalRatio = ratio + 0.5;
+    }else if(self.animationStyle == QBannerAnimateStyleParallax){
+        cell.parallaxOffsetRatio = self.parallaxOffsetRatio;
+        //        0-1
+        //        finalRatio = ratio;
+    }
+    cell.ratio = finalRatio;
+}
 - (void)doUpdateCell{
-        CGFloat minX = -CGRectGetWidth(self.collectionView.bounds);
-        CGFloat maxX = CGRectGetWidth(self.collectionView.bounds)*2;
-        for (QBannerCell *cell in self.collectionView.visibleCells) {
-            cell.animationStyle = self.animationStyle;
-            cell.parallaxOffsetRatio = self.parallaxOffsetRatio;
-            
-            if(self.animationStyle == QBannerAnimateStyleNone){
-                cell.ratio = 1;
-                continue;
-            }
-            CGRect rect = [self.collectionView convertRect:cell.frame toView:self];
-            CGFloat midX = CGRectGetMidX(rect);
-            //x=0-1
-            CGFloat ratio = [QBannerHelper getRatioWithMax:maxX min:minX mid:midX];
-            CGFloat finalRatio = ratio;
-            if(self.animationStyle == QBannerAnimateStyleScaleL){
-                //1.5-1-0.5
-                finalRatio = 2 - ratio - 0.5;
-            }else if(self.animationStyle == QBannerAnimateStyleScaleM){
-                //0.5-1-0.5
-                finalRatio = (sin(M_PI * ratio)) / 2 + 0.5;
-            }else if(self.animationStyle == QBannerAnimateStyleScaleR){
-                //0.5-1-1.5
-                finalRatio =ratio + 0.5;
-            }else if(self.animationStyle == QBannerAnimateStyleParallax){
-                
-            }
-            cell.ratio = finalRatio;
-        }
-    
-    
+    for (QBannerCell *cell in self.collectionView.visibleCells) {
+        [self updateCell:cell];
+    }
 }
 - (void)calCurrentPage{
     NSIndexPath *currentIdxPath = [self.collectionView indexPathForItemAtPoint:self.collectionView.contentOffset];
@@ -267,7 +289,6 @@ static NSString *QBannerCellID = @"QBannerCell";
     while (offsetX > CGRectGetWidth(self.collectionView.bounds)) {
         offsetX -= CGRectGetWidth(self.collectionView.bounds);
     }
-    
     //    CGFloat ratio = offsetX/CGRectGetWidth(self.collectionView.bounds);
     self.currentPage = currentIdxPath.row;
 }
@@ -278,10 +299,10 @@ static NSString *QBannerCellID = @"QBannerCell";
 @implementation QBannerCell
 
 - (void)initCell{
-//    self.bannerContentView.frame = self.bounds;
-//    self.iconView.frame = self.bannerContentView.bounds;
-//
-//    self.bannerContentView.transform  = CGAffineTransformMakeScale(1, 1);
+    //    self.bannerContentView.frame = self.bounds;
+    //    self.iconView.frame = self.bannerContentView.bounds;
+    //
+    //    self.bannerContentView.transform  = CGAffineTransformMakeScale(1, 1);
     
     [self setRatio:self.ratio];
 }
@@ -318,7 +339,7 @@ static NSString *QBannerCellID = @"QBannerCell";
     self.bannerContentView.frame = self.bounds;
     self.iconView.frame = self.bannerContentView.bounds;
     
-//    self.bannerContentView.transform  = CGAffineTransformMakeScale(1, 1);
+    //    self.bannerContentView.transform  = CGAffineTransformMakeScale(1, 1);
     self.clipsToBounds = YES;
     self.contentView.clipsToBounds = YES;
 }
@@ -328,8 +349,8 @@ static NSString *QBannerCellID = @"QBannerCell";
 //}
 - (void)setRatio:(CGFloat)ratio{
     _ratio = ratio;
-//    self.label.text = [NSString stringWithFormat:@"%f",ratio];
-    NSLog(@"%f",ratio);
+    //    self.label.text = [NSString stringWithFormat:@"%f",ratio];
+    //    NSLog(@"%f",ratio);
     if(self.customSetRatio){
         self.customSetRatio(self, ratio);
     }else{
@@ -437,6 +458,10 @@ static NSString *QBannerCellID = @"QBannerCell";
 + (CGFloat)getRatioWithMax:(CGFloat)max min:(CGFloat)min mid:(CGFloat)mid{
     return (mid - min) / (max - min);
 }
+//CGFloat qb_getRatio(CGFloat max, CGFloat min, CGFloat mid){
+//    return (mid - min) / (max - min);
+//}
+
 
 /**
  根据最大 最小 比例 获取 中间值
@@ -448,9 +473,27 @@ static NSString *QBannerCellID = @"QBannerCell";
  @return 中间值
  */
 + (CGFloat)getMidWithMax:(CGFloat)max min:(CGFloat)min ratio:(CGFloat)ratio{
-    return (max - min) * ratio + min;
+    //    return (max - min) * ratio + min;
+    CGFloat y = qb_easeIn(ratio);
+    return (max - min) * y + min;
 }
+//CGFloat qb_getMid(CGFloat max, CGFloat min, CGFloat ratio){
+//    return (max - min) * ratio + min;
+//}
 
+
+/**
+ 淡入
+ */
+CGFloat qb_easeIn(CGFloat x){
+    return  pow(x, 2);
+}
+/**
+ 淡出
+ */
+CGFloat qb_easeOut(CGFloat x){
+    return pow(x, 0.5);
+}
 /**
  根据最大rect，最小rect，比例获取中间rect
  
@@ -465,5 +508,12 @@ static NSString *QBannerCellID = @"QBannerCell";
                       [QBannerHelper getMidWithMax:maxRect.size.width     min:minRect.size.width  ratio:ratio],
                       [QBannerHelper getMidWithMax:maxRect.size.height    min:minRect.size.height ratio:ratio]);
 }
-
+//CGRect qb_getMidRect(CGRect max, CGRect min, CGFloat ratio){
+//    return CGRectMake(qb_getMid(max.origin.x, min.origin.x, ratio),
+//                      qb_getMid(max.origin.y, min.origin.y, ratio),
+//                      qb_getMid(max.size.width, min.size.width, ratio),
+//                      qb_getMid(max.size.height, min.size.height, ratio));
+//}
 @end
+
+
