@@ -149,15 +149,22 @@ typedef NS_ENUM(NSInteger, QBannerAnimateStyle) {
 @end
 
 
+typedef NS_ENUM(NSInteger, QB_AnimationType) {
+    QB_AnimationTypeEaseIn,
+    QB_AnimationTypeEaseOut,
+    QB_AnimationTypeNone,
+};
 @interface QBannerHelper : NSObject
 
 
 
 + (NSTimer *)scheduledTimerWithTimeInterval:(NSTimeInterval)ti target:(id)aTarget selector:(SEL)aSelector userInfo:(id)userInfo;
-+ (CGFloat)getRatioWithMax:(CGFloat)max min:(CGFloat)min mid:(CGFloat)mid;
-+ (CGFloat)getMidWithMax:(CGFloat)max min:(CGFloat)min ratio:(CGFloat)ratio;
-+ (CGRect)getRectWithMaxRect:(CGRect)maxRect minRect:(CGRect)minRect Ratio:(CGFloat)ratio;
 
+
+
+CGFloat qb_getRatio(CGFloat max, CGFloat min, CGFloat mid);
+CGFloat qb_getMid(QB_AnimationType type, CGFloat max, CGFloat min, CGFloat ratio);
+CGRect qb_getMidRect(QB_AnimationType type, CGRect max, CGRect min, CGFloat ratio);
 @end
 
 

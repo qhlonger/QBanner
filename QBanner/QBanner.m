@@ -258,7 +258,7 @@ static NSString *QBannerCellID = @"QBannerCell";
     
     //当前x在 最小X和最大X中的比例
     //x=0-1
-    CGFloat ratio = [QBannerHelper getRatioWithMax:maxX min:minX mid:midX];
+    CGFloat ratio = qb_getRatio(maxX, minX, midX);
     //转化为cell需要的比例
     CGFloat finalRatio = ratio;
     if(self.animationStyle == QBannerAnimateStyleScaleL){
@@ -358,16 +358,16 @@ static NSString *QBannerCellID = @"QBannerCell";
             case QBannerAnimateStyleParallax:{
                 if(ratio > 1 || ratio < 0)return;
                 CGFloat lw = CGRectGetWidth(self.iconView.bounds)*1.5 * self.parallaxOffsetRatio;
-                self.bannerContentView.frame =
-                [QBannerHelper getRectWithMaxRect:CGRectMake(-lw,
-                                                             0,
-                                                             self.frame.size.width,
-                                                             self.frame.size.height)
-                                          minRect:CGRectMake(lw,
-                                                             0,
-                                                             self.frame.size.width,
-                                                             self.frame.size.height)
-                                            Ratio:ratio];
+                self.bannerContentView.frame = qb_getMidRect(QB_AnimationTypeNone,
+                                                             CGRectMake(-lw,
+                                                                        0,
+                                                                        self.frame.size.width,
+                                                                        self.frame.size.height),
+                                                             CGRectMake(lw,
+                                                                        0,
+                                                                        self.frame.size.width,
+                                                                        self.frame.size.height),
+                                                             ratio);
                 self.iconView.frame = self.bannerContentView.bounds;
             }break;
             case QBannerAnimateStyleNone:{
@@ -377,16 +377,15 @@ static NSString *QBannerCellID = @"QBannerCell";
                 
             }break;
             default:{
-                self.bannerContentView.frame =
-                [QBannerHelper getRectWithMaxRect:CGRectMake(0,
-                                                             0,
-                                                             self.frame.size.width ,
-                                                             self.frame.size.height )
-                                          minRect:CGRectMake(0,
-                                                             0,
-                                                             self.frame.size.width * 0.2,
-                                                             self.frame.size.height * 0.2)
-                                            Ratio:ratio];
+                self.bannerContentView.frame = qb_getMidRect(QB_AnimationTypeEaseIn,
+                                                             CGRectMake(0,
+                                                                        0,
+                                                                        self.frame.size.width ,
+                                                                        self.frame.size.height ),
+                                                             CGRectMake(0,
+                                                                        0,
+                                                                        self.frame.size.width * 0.2,
+                                                                        self.frame.size.height * 0.2), ratio);
                 self.bannerContentView.center = CGPointMake(CGRectGetWidth(self.bounds)/2, CGRectGetHeight(self.bounds)/2);
                 self.iconView.frame = self.bannerContentView.bounds;
             }break;
@@ -455,32 +454,37 @@ static NSString *QBannerCellID = @"QBannerCell";
  @param mid 中间值
  @return 比例
  */
-+ (CGFloat)getRatioWithMax:(CGFloat)max min:(CGFloat)min mid:(CGFloat)mid{
+CGFloat qb_getRatio(CGFloat max, CGFloat min, CGFloat mid){
     return (mid - min) / (max - min);
 }
-//CGFloat qb_getRatio(CGFloat max, CGFloat min, CGFloat mid){
-//    return (mid - min) / (max - min);
-//}
 
 
 /**
  根据最大 最小 比例 获取 中间值
  
+ @param type  类型
  @param max   最大
  @param min   最小
  @param ratio 比例
  
  @return 中间值
  */
-+ (CGFloat)getMidWithMax:(CGFloat)max min:(CGFloat)min ratio:(CGFloat)ratio{
-    //    return (max - min) * ratio + min;
-    CGFloat y = qb_easeIn(ratio);
-    return (max - min) * y + min;
+CGFloat qb_getMid(QB_AnimationType type, CGFloat max, CGFloat min, CGFloat ratio){
+    switch (type) {
+        case QB_AnimationTypeEaseIn:
+            ratio = qb_easeIn(ratio);
+            break;
+        case QB_AnimationTypeEaseOut:
+            ratio = qb_easeOut(ratio);
+            break;
+        case QB_AnimationTypeNone:
+            
+            break;
+        default:
+            break;
+    }
+    return (max - min) * ratio + min;
 }
-//CGFloat qb_getMid(CGFloat max, CGFloat min, CGFloat ratio){
-//    return (max - min) * ratio + min;
-//}
-
 
 /**
  淡入
@@ -497,23 +501,16 @@ CGFloat qb_easeOut(CGFloat x){
 /**
  根据最大rect，最小rect，比例获取中间rect
  
- @param maxRect 最大rect
- @param minRect 最小rect
+ @param max 最大rect
+ @param min 最小rect
  @param ratio 比例
  @return 中间rect
  */
-+ (CGRect)getRectWithMaxRect:(CGRect)maxRect minRect:(CGRect)minRect Ratio:(CGFloat)ratio{
-    return CGRectMake([QBannerHelper getMidWithMax:maxRect.origin.x       min:minRect.origin.x    ratio:ratio],
-                      [QBannerHelper getMidWithMax:maxRect.origin.y       min:minRect.origin.y    ratio:ratio],
-                      [QBannerHelper getMidWithMax:maxRect.size.width     min:minRect.size.width  ratio:ratio],
-                      [QBannerHelper getMidWithMax:maxRect.size.height    min:minRect.size.height ratio:ratio]);
+CGRect qb_getMidRect(QB_AnimationType type, CGRect max, CGRect min, CGFloat ratio){
+    return CGRectMake(qb_getMid(type, max.origin.x, min.origin.x, ratio),
+                      qb_getMid(type, max.origin.y, min.origin.y, ratio),
+                      qb_getMid(type, max.size.width, min.size.width, ratio),
+                      qb_getMid(type, max.size.height, min.size.height, ratio));
 }
-//CGRect qb_getMidRect(CGRect max, CGRect min, CGFloat ratio){
-//    return CGRectMake(qb_getMid(max.origin.x, min.origin.x, ratio),
-//                      qb_getMid(max.origin.y, min.origin.y, ratio),
-//                      qb_getMid(max.size.width, min.size.width, ratio),
-//                      qb_getMid(max.size.height, min.size.height, ratio));
-//}
 @end
-
 
