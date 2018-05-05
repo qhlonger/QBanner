@@ -80,7 +80,12 @@
 }
 - (void)setCurrentPage:(CGFloat)currentPage{
     _currentPage = currentPage;
-    self.pageControl.currentPage = (NSInteger)currentPage;
+    CGFloat pg = currentPage + 0.5;
+    if(pg > self.itemCount){
+        self.pageControl.currentPage = 0;
+    }else{
+        self.pageControl.currentPage = (NSInteger)pg;
+    }
 }
 - (void)setImages:(NSArray *)images{
     _images = images;
@@ -284,13 +289,16 @@ static NSString *QBannerCellID = @"QBannerCell";
 }
 - (void)calCurrentPage{
     NSIndexPath *currentIdxPath = [self.collectionView indexPathForItemAtPoint:self.collectionView.contentOffset];
-    CGPoint offset = self.collectionView.contentOffset;
-    CGFloat offsetX = offset.x;
-    while (offsetX > CGRectGetWidth(self.collectionView.bounds)) {
+    CGFloat offsetX = self.collectionView.contentOffset.x;
+    while (offsetX >= CGRectGetWidth(self.collectionView.bounds)) {
         offsetX -= CGRectGetWidth(self.collectionView.bounds);
     }
-    //    CGFloat ratio = offsetX/CGRectGetWidth(self.collectionView.bounds);
-    self.currentPage = currentIdxPath.row;
+    
+    CGFloat ratio = offsetX/CGRectGetWidth(self.collectionView.bounds);
+
+    self.currentPage = currentIdxPath.row + ratio;
+//    NSLog(@"%f",self.currentPage+ratio);
+    if(self.didScroll)self.didScroll(self, self.currentPage);
 }
 
 @end
